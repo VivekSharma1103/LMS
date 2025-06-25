@@ -1,7 +1,10 @@
 import { Webhook } from 'svix';
 import User from '../models/user.js';
+import Stripe from 'stripe';
+import { Purchase } from '../models/Purchase.js';
+import Course from '../models/Course.js';
 
-const clerkWebhooks = async (req, res) => {
+export const clerkWebhooks = async (req, res) => {
   try {
     const payload = req.body; 
     const headers = {
@@ -42,6 +45,63 @@ const clerkWebhooks = async (req, res) => {
   }
 };
 
-export default clerkWebhooks;
+const stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+export const stripeWebhooks = async (request,response)=>{
+    const sig = request.headers['stripe-signature'];
+    let event;
+    try {
+        event = stripeInstance.webhooks.constructEvent(request.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err) {
+        console.error(`Webhook Error: ${err.message}`);
+        return response.status(400).send(`Webhook Error: ${err.message}`);
+    }
+    // Handle the event
+    switch (event.type) {
+        case 'payment_intent.succeeded': { 
+            const paymentIntent = event.data.object; // contains a stripe payment intent object
+            const paymentIntentId = paymentIntent.id;
+            const session = await stripeInstance.checkout.sessions.list({
+                payment_intent: paymentIntentId,
+                
+            })
+            const {purchaseId} = session.data[0].metadata;
+            const purchaseData = await Purchase.findById(purchaseId);
+            const userData = await User.findById(purchaseData.userId);
+            const courseData = await Course.findById(purchaseData.courseId.toString());
+
+            courseData.enrolledStudents.push(userData)
+            await courseData.save();
+
+            userData.enrolledCourses.push(courseData._id);
+            await userData.save();
+
+            purchaseData.status = 'completed';
+            await purchaseData.save();
+
+            console.log('PaymentIntent was successful!', paymentIntent);
+            
+            break;
+        }
+        case 'payment_intent.payment_failed':{ 
+            const paymentIntent = event.data.object; // contains a stripe payment intent object
+            const paymentIntentId = paymentIntent.id;
+            const session = await stripeInstance.checkout.sessions.list({
+                payment_intent: paymentIntentId,
+            });
+
+            const {purchaseId} = session.data[0].metadata;
+            const purchaseData = await Purchase.findById(purchaseId);
+            purchaseData.status = 'failed'; 
+            await purchaseData.save();
+            break;
+        }
+            default:{
+            console.log(`Unhandled event type ${event.type}`);
+            break;
+        }
+}
+}
+
 // This code handles Clerk webhooks, verifying the payload and processing user creation and deletion events.
 // It uses the svix library to verify the webhook signature and updates the user database accordingly.  
