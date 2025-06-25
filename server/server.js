@@ -1,28 +1,25 @@
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
+import bodyParser from 'body-parser'; // ✅ Required for raw body
 import connectDB from './configs/mongodb.js';
-import bodyParser from 'body-parser'; // ADD THIS
 import clerkWebhooks from './controllers/webhooks.js';
 
 const app = express();
 
-// Connect to DB
+// DB Connect
 await connectDB();
 
 // Middleware
 app.use(cors());
 
-// Health check
+// Health route
 app.get('/', (req, res) => {
-  res.send('api is working');
+  res.send('API working');
 });
 
-// Middleware to parse raw body for Clerk webhooks
+// ✅ Raw body ONLY for /clerk route
 app.post('/clerk', bodyParser.raw({ type: '*/*' }), clerkWebhooks);
 
-// Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
