@@ -4,7 +4,7 @@ import Stripe from 'stripe';
 import { Purchase } from '../models/Purchase.js';
 import Course from '../models/Course.js';
 
-export const clerkWebhooks = async (req, res) => {
+ const clerkWebhooks = async (req, res) => {
   try {
     const payload = req.body; 
     const headers = {
@@ -102,6 +102,8 @@ export const stripeWebhooks = async (request,response)=>{
         }
 }
 }
+
+export default clerkWebhooks;
 
 // This code handles Clerk webhooks, verifying the payload and processing user creation and deletion events.
 // It uses the svix library to verify the webhook signature and updates the user database accordingly.  
