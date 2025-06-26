@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { use, useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { AppContext } from '../../context/AppContext';
 import Loading from '../../components/student/Loading';
@@ -6,6 +6,7 @@ import { assets } from '../../assets/assets';
 import humanizeDuration from 'humanize-duration';
 import Footer from '../../components/student/Footer';
 import YouTube from 'react-youtube';
+import { toast } from 'react-toastify';
 
 function CourseDetails() {
   const { id } = useParams();
@@ -15,15 +16,55 @@ function CourseDetails() {
   const [playerData, setPlayerData] = useState(null);
 
 
-  const { allCourses, calculateRatings, calculateChapterTime, calculateCourseDuration, calculateNoOfLectures,currency } = useContext(AppContext);
+  const { allCourses, calculateRatings, calculateChapterTime, calculateCourseDuration, calculateNoOfLectures,currency ,backendUrl,userData,getToken} = useContext(AppContext);
+
+   const fetchCourseData = async () => {
+      try {
+        const {data} = await axios.get(`${backendUrl}/api/course/${id}`);
+        if(data.success) {
+          setCourseData(data.course);
+          
+        } else {
+          toast.error(data.message);
+        }   
+      } catch (error) {
+        toast.error(error.message);
+      }
+      
+    };
+    const enrollCourse = async ()=>{
+      try {
+        if(!userData){
+          return toast.warn('Please login to enroll in the course');
+        }
+        if(isAlreadyEnrolled){
+          return toast.warn('You are already enrolled in this course');
+        }
+        const token = await getToken();
+        const {data} = await axios.post(`${backendUrl}/api/user/purchase`,{courseId:courseData._id},{headers:{Authorization:`Bearer ${token}`}});
+        if(data.success){
+          const {session_url} = data;
+          window.location.replace(session_url);
+          // Optionally, you can redirect to the course player or my enrollments page
+          // navigate(`/player/${courseData._id}`);
+        } else {
+          toast.error(error.message);
+        }
+      } catch (error) {
+        
+      }
+    }
 
   useEffect(() => {
-    const fetchCourseData = async () => {
-      const findCourse = allCourses.find((course) => course._id === id);
-      setCourseData(findCourse);
-    };
+   
     fetchCourseData();
-  }, [allCourses, id]);
+  }, []);
+
+  useEffect(() => {
+    if(userData && courseData){
+      setIsAlreadyEnrolled(userData.enrolledCourses.includes(courseData._id));
+    }
+  },[]);
 
   if (!courseData) return <Loading />;
 
@@ -167,7 +208,7 @@ function CourseDetails() {
             <p>{calculateNoOfLectures(courseData)} lessons</p>
           </div>
         </div>
-        <button className='md:mt-6 mt-4 w-full py-3 rounded bg-blue-600 text-white font-medium'>{isAlreadyEnrolled ? 'Already Enrolled' : 'Enroll Now'}</button>
+        <button onClick={enrollCourse} className='md:mt-6 mt-4 w-full py-3 rounded bg-blue-600 text-white font-medium'>{isAlreadyEnrolled ? 'Already Enrolled' : 'Enroll Now'}</button>
         <div className='pt-6'>
           <p className='md:text-xl text-lg font-medium text-gray-800'>What's in the course?</p>
           <ul className='ml-4 pt-2 text-sm md:text-default list-disc text-gray-500'>

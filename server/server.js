@@ -28,7 +28,7 @@ app.get('/', (req, res) => {
 // ✅ Raw body ONLY for /clerk route
 app.post('/clerk', bodyParser.raw({ type: '*/*' }), clerkWebhooks);
 app.use('/api/educator',express.json(),educatorRouter)
-app.use('/api/course',express.json(),courseRouter)
+app.use('/api/courses',express.json(),courseRouter)
 
 app.use('/api/user', express.json(), userRouter);
 app.post('/stripe',express.raw({type: 'application/json'}), stripeWebhooks);

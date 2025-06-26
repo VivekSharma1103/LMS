@@ -1,9 +1,14 @@
-import React, { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState, useEffect, useContext } from 'react'
 import uniqid from 'uniqid'
 import Quill from 'quill'
 import { assets } from '../../assets/assets'
+import { AppContext } from '../../context/AppContext'
+import axios from 'axios';
+import { toast } from 'react-toastify';
+
 
 function AddCourse() {
+  const {backendUrl,getToken} = useContext(AppContext)
   const quillRef = useRef(null)
   const editorRef = useRef(null)
 
@@ -63,6 +68,62 @@ const handleLecture = (action, chapterId, lectureIndex) => {
         return chapter;
       })
     );
+  }
+};
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    if (!image) {
+      toast.error('Thumbnail Not Selected');
+      return; // Add return to stop execution
+    }
+    
+    // Validate at least one chapter exists
+    if (chapters.length === 0) {
+      toast.error('Please add at least one chapter');
+      return;
+    }
+
+    const courseData = {
+      courseTitle,
+      courseDescription: quillRef.current.root.innerHTML,
+      coursePrice: Number(coursePrice),
+      discount: Number(discount),
+      courseContent: chapters,
+    };
+
+    const formData = new FormData();
+    formData.append('courseData', JSON.stringify(courseData));
+    formData.append('image', image);
+
+    const token = await getToken();
+    const { data } = await axios.post(
+      `${backendUrl}/api/educator/add-course`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+
+    if (data.success) {
+      toast.success(data.message);
+      // Reset form
+      setCourseTitle('');
+      setCoursePrice(0);
+      setDiscount(0);
+      setImage(null);
+      setChapters([]);
+      quillRef.current.root.innerHTML = '';
+    } else {
+      toast.error(data.message);
+    }
+  } catch (error) {
+    console.error('Error adding course:', error);
+    toast.error(error.response?.data?.message || 'Failed to add course');
   }
 };
 
